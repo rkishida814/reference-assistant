@@ -1,9 +1,9 @@
-import { DEFAULT_CONFIG, fetchMetadata, buildRunsForEntry, buildTxt, buildDocx } from "./format.js?v=4";
+import { DEFAULT_CONFIG, extractDoi, fetchMetadata, buildRunsForEntry, buildTxt, buildDocx } from "./format.js?v=5";
 
 const FONT_FIELDS = ["Author", "Title", "Journal", "Vol", "Page", "Year"];
 const DELIM_KEYS = ["author_author", "author_title", "title_journal", "journal_vol", "vol_page", "page_year"];
 const DELIM_OPTIONS = [",", ";", ":", ".", " "];
-export const VERSION = "4";
+export const VERSION = "5";
 const DRAFT_KEY = "reference-assistant-draft";
 const canUseFS = "showOpenFilePicker" in window;
 
@@ -262,7 +262,8 @@ function updateDelimLabels() {
 // ---------- 表 ----------
 
 function columns() {
-  const maxAuthors = Math.max(1, ...state.entries.map((e) => (e.authors || []).length));
+  // 手入力で著者を増やせるよう、常に空の著者列を 1 組余分に出す
+  const maxAuthors = Math.max(0, ...state.entries.map((e) => (e.authors || []).length)) + 1;
   const hideAfter = Number(state.config.hide_author_after) || 0;
   const cols = [];
   for (let i = 0; i < maxAuthors; i++) {
@@ -295,7 +296,34 @@ function setCell(entry, col, value) {
     entry.authors[col.author][col.part] = value;
   } else {
     entry[col.key] = value;
+    if (col.key === "doi_url") entry.doi = extractDoi(value) || "";
   }
+}
+
+function addBlankRow() {
+  snapshot();
+  state.entries.push({
+    authors: [], title: "", journal: "", short_journal: "",
+    vol: "", page1: "", page2: "", year: "", doi: "", doi_url: "",
+  });
+  markChanged();
+  const first = document.querySelector(`#ref-table tbody tr:last-child input`);
+  if (first) {
+    first.scrollIntoView({ block: "center" });
+    first.focus();
+  }
+}
+
+// 表の作り直しでフォーカスが外れないよう、同じ行・同じ見出しの欄に戻す
+function renderKeepingFocus() {
+  const a = document.activeElement;
+  const pos = a && a.dataset && a.dataset.row !== undefined && currentCols[+a.dataset.col]
+    ? { row: a.dataset.row, head: currentCols[+a.dataset.col].head } : null;
+  render();
+  if (!pos) return;
+  const ci = currentCols.findIndex((c) => c.head === pos.head);
+  const el = document.querySelector(`#ref-table input[data-row="${pos.row}"][data-col="${ci}"]`);
+  if (el) el.focus();
 }
 
 let currentCols = [];
@@ -362,7 +390,13 @@ function setupTable() {
     snapshot();
     const before = columns().length;
     setCell(entry, col, el.value);
-    markChanged(columns().length !== before);
+    if (columns().length !== before) {
+      // 著者列が増えたときは、Tab で移った先の欄にフォーカスが移ってから作り直す
+      markChanged(false);
+      setTimeout(renderKeepingFocus, 0);
+    } else {
+      markChanged(false);
+    }
   });
 
   // 表計算ソフトからのタブ区切り貼り付けを複数セルに展開
@@ -458,6 +492,7 @@ function init() {
   $("btn-append").onclick = appendFromList;
   $("btn-save").onclick = saveAs;
   $("btn-load").onclick = loadMetadata;
+  $("btn-blank").onclick = addBlankRow;
   $("doi-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.isComposing) loadMetadata(); });
   $("list-name").addEventListener("change", (ev) => {
     state.listName = ev.target.value.trim() || "Untitled_List";

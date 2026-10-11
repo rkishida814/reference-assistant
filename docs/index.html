@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reference Assistant</title>
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
   <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.iife.js" defer></script>
-  <script type="module" src="app.js?v=4"></script>
+  <script type="module" src="app.js?v=5"></script>
 </head>
 <body>
   <header class="topbar">
@@ -27,6 +27,7 @@
     <section class="input-row">
       <input id="doi-input" placeholder="DOI または URL を入力（例: 10.1038/s41586-020-2649-2）">
       <button id="btn-load" class="primary">メタデータ取得</button>
+      <button id="btn-blank">＋ 空の行を追加（手入力）</button>
     </section>
 
     <details class="settings" open>
@@ -85,7 +86,7 @@
         <thead></thead>
         <tbody></tbody>
       </table>
-      <p id="empty-msg" class="muted">まだ文献がありません。上の欄に DOI を入れて「メタデータ取得」を押してください。</p>
+      <p id="empty-msg" class="muted">まだ文献がありません。上の欄に DOI を入れて「メタデータ取得」を押すか、「空の行を追加」で手入力してください。</p>
     </div>
 
     <section class="preview">

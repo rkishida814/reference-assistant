@@ -170,7 +170,7 @@ export function buildRunsForEntry(entry, config) {
 
   // 3. 雑誌名
   let journal = config.journal_abbrev ? entry.short_journal || "" : entry.journal || "";
-  if (!journal && config.journal_abbrev) journal = entry.journal || "";
+  if (!journal) journal = (config.journal_abbrev ? entry.journal : entry.short_journal) || "";
   if (journal) {
     if (!config.hide_title && entry.title) addDelim(d("title_journal", "."));
     else if (authorStrs.length && config.hide_title) addAuthorTitleDelim();
