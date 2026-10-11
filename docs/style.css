@@ -162,3 +162,4 @@ tr.drop-after td { box-shadow: inset 0 -2px 0 var(--drop); }
   .file-status { margin-left: 0; }
   .input-row { flex-direction: column; }
 }
+h1 small { font-size: 12px; font-weight: 400; }

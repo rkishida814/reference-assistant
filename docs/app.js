@@ -1,8 +1,9 @@
-import { DEFAULT_CONFIG, fetchMetadata, buildRunsForEntry, buildTxt, buildDocx } from "./format.js";
+import { DEFAULT_CONFIG, fetchMetadata, buildRunsForEntry, buildTxt, buildDocx } from "./format.js?v=3";
 
 const FONT_FIELDS = ["Author", "Title", "Journal", "Vol", "Page", "Year"];
 const DELIM_KEYS = ["author_author", "author_title", "title_journal", "journal_vol", "vol_page", "page_year"];
 const DELIM_OPTIONS = [",", ";", ":", ".", " "];
+export const VERSION = "3";
 const DRAFT_KEY = "reference-assistant-draft";
 const canUseFS = "showOpenFilePicker" in window;
 
@@ -104,15 +105,23 @@ function parseList(text) {
 
 async function pickFile() {
   if (canUseFS) {
-    const [handle] = await window.showOpenFilePicker({
-      types: [{ description: "Reference list", accept: { "text/plain": [".txt", ".json"] } }],
-    });
-    return { handle, file: await handle.getFile() };
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: "Reference list", accept: { "text/plain": [".txt", ".json"] } }],
+      });
+      return { handle, file: await handle.getFile() };
+    } catch (e) {
+      if (e.name === "AbortError") throw e;
+      // 使えない環境では従来のファイル選択に切り替える（この場合は自動保存なし）
+      console.warn(e);
+      toast(`ファイル選択を切り替えます（${e.name}）`);
+    }
   }
   return new Promise((resolve, reject) => {
     const input = $("file-input");
     input.value = "";
     input.onchange = () => (input.files[0] ? resolve({ handle: null, file: input.files[0] }) : reject(new DOMException("", "AbortError")));
+    input.oncancel = () => reject(new DOMException("", "AbortError"));
     input.click();
   });
 }
@@ -440,6 +449,7 @@ function setupTable() {
 // ---------- 起動 ----------
 
 function init() {
+  $("version").textContent = `v${VERSION}`;
   buildSettingsUI();
   setupTable();
 
