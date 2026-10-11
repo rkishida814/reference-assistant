@@ -13,3 +13,7 @@ dist/
 
 .DS_Store
 handoff.md
+.claude/
+
+# gh のログイン情報（誤ってここに作られることがある）
+/~/

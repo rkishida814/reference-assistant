@@ -6,6 +6,9 @@ const DELIM_OPTIONS = [",", ";", ":", ".", " "];
 const DRAFT_KEY = "reference-assistant-draft";
 const canUseFS = "showOpenFilePicker" in window;
 
+const $ = (id) => document.getElementById(id);
+const clone = (x) => JSON.parse(JSON.stringify(x));
+
 const state = {
   entries: [],
   config: normalizeConfig(DEFAULT_CONFIG),
@@ -14,8 +17,6 @@ const state = {
   undoStack: [],
 };
 
-const $ = (id) => document.getElementById(id);
-const clone = (x) => JSON.parse(JSON.stringify(x));
 
 function normalizeConfig(cfg) {
   const c = { ...clone(DEFAULT_CONFIG), ...clone(cfg || {}) };
