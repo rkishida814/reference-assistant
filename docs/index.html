@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reference Assistant</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.iife.js" defer></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Reference Assistant</h1>
+    <div class="file-actions">
+      <button id="btn-new">新規</button>
+      <button id="btn-open">開く…</button>
+      <button id="btn-append">別リストから追加…</button>
+      <button id="btn-save">保存</button>
+    </div>
+    <div class="file-status">
+      <label>リスト名 <input id="list-name" value="Untitled_List"></label>
+      <span id="save-status" class="muted">未保存</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="input-row">
+      <input id="doi-input" placeholder="DOI または URL を入力（例: 10.1038/s41586-020-2649-2）">
+      <button id="btn-load" class="primary">メタデータ取得</button>
+    </section>
+
+    <details class="settings" open>
+      <summary>書式設定</summary>
+
+      <fieldset>
+        <legend>全般</legend>
+        <label><input type="checkbox" data-cfg="initials"> 名をイニシャルに</label>
+        <label><input type="checkbox" data-cfg="hide_title"> タイトルを隠す</label>
+        <label><input type="checkbox" data-cfg="journal_abbrev"> 雑誌名を略称に</label>
+        <label><input type="checkbox" data-cfg="year_parens"> (年)</label>
+        <label><input type="checkbox" data-cfg="end_period"> 末尾にピリオド</label>
+        <label>DOI:
+          <select data-cfg="doi_export">
+            <option>No DOI</option>
+            <option>URL (https://doi.org/...)</option>
+            <option>DOI Only (doi:...)</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>フォント</legend>
+        <div class="font-row" id="italic-row"><span>斜体:</span></div>
+        <div class="font-row" id="bold-row"><span>太字:</span></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>構成と区切り文字</legend>
+        <label>順序:
+          <select data-cfg="ordering">
+            <option>Vol, Page, Year</option>
+            <option>Year, Vol, Page</option>
+            <option>Vol, Year, Page</option>
+            <option>Year, Page, Vol</option>
+          </select>
+        </label>
+        <label>著者形式:
+          <select data-cfg="author_format">
+            <option>First Last (John Smith)</option>
+            <option>Last, First (Smith, John)</option>
+          </select>
+        </label>
+        <div id="delim-row" class="delim-row"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>著者の省略</legend>
+        <label>N人目より後を隠す: <input type="number" min="0" max="99" data-cfg="hide_author_after" class="num"> <span class="muted">(0 = 隠さない)</span></label>
+        <label><input type="checkbox" data-cfg="export_et_al"> 出力時に "et al." にする</label>
+      </fieldset>
+    </details>
+
+    <div class="table-wrap">
+      <table id="ref-table">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+      <p id="empty-msg" class="muted">まだ文献がありません。上の欄に DOI を入れて「メタデータ取得」を押してください。</p>
+    </div>
+
+    <section class="preview">
+      <div class="preview-head">
+        <h2>プレビュー</h2>
+        <div>
+          <button id="btn-export-txt">TXT で出力</button>
+          <button id="btn-export-docx" class="primary">DOCX で出力</button>
+        </div>
+      </div>
+      <ol id="preview-list"></ol>
+    </section>
+  </main>
+
+  <input type="file" id="file-input" accept=".txt,.json,text/plain,application/json" hidden>
+  <div id="toast" role="status"></div>
+</body>
+</html>

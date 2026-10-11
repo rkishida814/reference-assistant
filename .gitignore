@@ -1,0 +1,15 @@
+# 文献リスト（ローカルでのみ管理）
+list/
+*.txt
+!requirements.txt
+
+# Python / ビルド成果物
+venv/
+__pycache__/
+.pytest_cache/
+build/
+dist/
+*.app/
+
+.DS_Store
+handoff.md
