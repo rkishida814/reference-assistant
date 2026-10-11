@@ -1,9 +1,9 @@
-import { DEFAULT_CONFIG, fetchMetadata, buildRunsForEntry, buildTxt, buildDocx } from "./format.js?v=3";
+import { DEFAULT_CONFIG, fetchMetadata, buildRunsForEntry, buildTxt, buildDocx } from "./format.js?v=4";
 
 const FONT_FIELDS = ["Author", "Title", "Journal", "Vol", "Page", "Year"];
 const DELIM_KEYS = ["author_author", "author_title", "title_journal", "journal_vol", "vol_page", "page_year"];
 const DELIM_OPTIONS = [",", ";", ":", ".", " "];
-export const VERSION = "3";
+export const VERSION = "4";
 const DRAFT_KEY = "reference-assistant-draft";
 const canUseFS = "showOpenFilePicker" in window;
 
@@ -339,7 +339,7 @@ function renderPreview() {
   for (const entry of state.entries) {
     const li = document.createElement("li");
     for (const run of buildRunsForEntry(entry, c)) {
-      const span = document.createElement("span");
+      const span = document.createElement(run.sub ? "sub" : run.sup ? "sup" : "span");
       span.textContent = run.text;
       if (run.italic) span.className = "it";
       if (run.bold) span.classList.add("bd");

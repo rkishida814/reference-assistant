@@ -72,6 +72,15 @@ export async function fetchMetadata(inputText) {
   };
 }
 
+function decodeEntities(s) {
+  return s.replace(/&(amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);/gi, (all, e) => {
+    const named = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" }[e.toLowerCase()];
+    if (named) return named;
+    const code = e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : all;
+  });
+}
+
 function formatAuthor(author, config) {
   let first = (author.first || "").trim();
   const last = (author.last || "").trim();
@@ -123,11 +132,40 @@ export function buildRunsForEntry(entry, config) {
     else addDelim(delim);
   };
 
+  // Crossref のタイトルに含まれる <i> <b> <sub> <sup> を書式に変換する
+  const addMarkupRun = (text, field) => {
+    if (!text) return;
+    const baseBold = !!(config.bold || {})[field];
+    const baseItalic = !!(config.italic || {})[field];
+    const depth = { i: 0, b: 0, sub: 0, sup: 0 };
+    const alias = { em: "i", strong: "b" };
+    const tagRe = /<\s*(\/?)\s*([a-z0-9:]+)[^>]*>/gi;
+    let last = 0, m;
+    const push = (chunk) => {
+      chunk = decodeEntities(chunk);
+      if (!chunk) return;
+      runs.push({
+        text: chunk,
+        bold: baseBold || depth.b > 0,
+        italic: baseItalic !== depth.i > 0, // 全体が斜体のときはタグ部分を立体に戻す
+        sub: depth.sub > 0,
+        sup: depth.sup > 0,
+      });
+    };
+    while ((m = tagRe.exec(text))) {
+      push(text.slice(last, m.index));
+      last = tagRe.lastIndex;
+      const name = alias[m[2].toLowerCase()] || m[2].toLowerCase();
+      if (name in depth) depth[name] = Math.max(0, depth[name] + (m[1] ? -1 : 1));
+    }
+    push(text.slice(last));
+  };
+
   // 2. タイトル
   if (!config.hide_title) {
     const title = entry.title || "";
     if (title && authorStrs.length) addAuthorTitleDelim();
-    addRun(title, "Title");
+    addMarkupRun(title, "Title");
   }
 
   // 3. 雑誌名
@@ -193,7 +231,7 @@ export async function buildDocx(entries, config) {
     spacing: { line: 480 }, // ダブルスペース
     children: [
       new TextRun(`[${i + 1}] `),
-      ...buildRunsForEntry(e, config).map((r) => new TextRun({ text: r.text, bold: r.bold, italics: r.italic })),
+      ...buildRunsForEntry(e, config).map((r) => new TextRun({ text: r.text, bold: r.bold, italics: r.italic, subScript: !!r.sub, superScript: !!r.sup })),
     ],
   }));
   const doc = new Document({
