@@ -1,9 +1,10 @@
-import { DEFAULT_CONFIG, extractDoi, fetchMetadata, buildRunsForEntry, buildTxt, buildDocx } from "./format.js?v=5";
+import { DEFAULT_CONFIG, extractDoi, fetchMetadata, buildRunsForEntry, buildTxt, buildDocx } from "./format.js?v=6";
+import * as abbrevDict from "./abbrev.js?v=6";
 
 const FONT_FIELDS = ["Author", "Title", "Journal", "Vol", "Page", "Year"];
 const DELIM_KEYS = ["author_author", "author_title", "title_journal", "journal_vol", "vol_page", "page_year"];
 const DELIM_OPTIONS = [",", ";", ":", ".", " "];
-export const VERSION = "5";
+export const VERSION = "6";
 const DRAFT_KEY = "reference-assistant-draft";
 const canUseFS = "showOpenFilePicker" in window;
 
@@ -41,7 +42,7 @@ function toast(msg) {
 // ---------- 保存 ----------
 
 function serialize() {
-  return JSON.stringify({ entries: state.entries, config: state.config }, null, 2);
+  return JSON.stringify({ entries: state.entries, config: state.config, abbreviations: abbrevDict.snapshot() }, null, 2);
 }
 
 let saveTimer = null;
@@ -99,8 +100,20 @@ function download(blob, filename) {
 
 function parseList(text) {
   const data = JSON.parse(text);
-  if (Array.isArray(data)) return { entries: data, config: null }; // 旧形式
-  return { entries: data.entries || [], config: data.config || null };
+  if (Array.isArray(data)) return { entries: data, config: null, abbreviations: null }; // 旧形式
+  return { entries: data.entries || [], config: data.config || null, abbreviations: data.abbreviations || null };
+}
+
+// ファイル内の辞書を取り込み、辞書と違う略称の行があれば合わせるか確認する
+function reconcileAbbrev(abbreviations, entries) {
+  const added = abbrevDict.mergeFrom(abbreviations);
+  if (added) toast(`ファイルから略称を ${added} 件、辞書に取り込みました`);
+  const diff = abbrevDict.mismatches(entries);
+  if (!diff.length) return false;
+  const sample = diff.slice(0, 5).map((e) => `・${e.short_journal || "(空)"} → ${abbrevDict.lookup(e.journal)}`).join("\n");
+  if (!confirm(`略称辞書と違う雑誌略称が ${diff.length} 件あります。辞書に合わせますか？\n\n${sample}${diff.length > 5 ? "\n…" : ""}`)) return false;
+  for (const e of diff) e.short_journal = abbrevDict.lookup(e.journal);
+  return true;
 }
 
 async function pickFile() {
@@ -129,7 +142,7 @@ async function pickFile() {
 async function openList() {
   try {
     const { handle, file } = await pickFile();
-    const { entries, config } = parseList(await file.text());
+    const { entries, config, abbreviations } = parseList(await file.text());
     state.entries = entries;
     state.config = normalizeConfig(config || DEFAULT_CONFIG);
     state.fileHandle = handle;
@@ -139,6 +152,7 @@ async function openList() {
     syncControls();
     render();
     $("save-status").textContent = handle ? `開いています: ${file.name}（変更は自動保存）` : `読み込みました: ${file.name}`;
+    if (reconcileAbbrev(abbreviations, state.entries)) markChanged();
   } catch (e) {
     if (e.name !== "AbortError") toast(`読み込めませんでした: ${e.message}`);
   }
@@ -147,8 +161,9 @@ async function openList() {
 async function appendFromList() {
   try {
     const { file } = await pickFile();
-    const { entries } = parseList(await file.text());
+    const { entries, abbreviations } = parseList(await file.text());
     snapshot();
+    reconcileAbbrev(abbreviations, entries);
     state.entries.push(...entries);
     markChanged();
     toast(`${entries.length} 件追加しました`);
@@ -192,6 +207,8 @@ async function loadMetadata() {
   btn.textContent = "取得中…";
   try {
     const entry = await fetchMetadata(text);
+    const learned = abbrevDict.lookup(entry.journal);
+    if (learned) entry.short_journal = learned;
     snapshot();
     state.entries.push(entry);
     input.value = "";
@@ -300,6 +317,44 @@ function setCell(entry, col, value) {
   }
 }
 
+// 手で直した略称を辞書に覚え、同じ雑誌の他の行にも反映するか確認する。表を作り直す必要があれば true
+function learnAbbrev(entry) {
+  if (!entry.journal || !entry.short_journal.trim()) return false;
+  if (!abbrevDict.learn(entry.journal, entry.short_journal)) return false;
+  const others = abbrevDict.mismatches(state.entries, entry);
+  let applied = false;
+  if (others.length && confirm(`「${entry.journal}」の略称を「${entry.short_journal.trim()}」として覚えました。\n同じ雑誌の他の ${others.length} 件にも反映しますか？`)) {
+    for (const e of others) e.short_journal = abbrevDict.lookup(e.journal);
+    applied = true;
+  }
+  toast(`略称を辞書に登録しました: ${entry.short_journal.trim()}`);
+  return applied;
+}
+
+// ---------- 略称辞書の画面 ----------
+
+function openAbbrevDialog() {
+  renderAbbrevDialog();
+  $("abbrev-dialog").showModal();
+}
+
+function renderAbbrevDialog() {
+  const items = abbrevDict.all();
+  const body = $("abbrev-body");
+  body.innerHTML = "";
+  $("abbrev-empty").hidden = items.length > 0;
+  for (const it of items) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="abbrev-full"></td><td><input></td><td class="ctrl del" title="削除">🗑️</td>`;
+    tr.firstChild.textContent = it.journal;
+    const input = tr.querySelector("input");
+    input.value = it.abbrev;
+    input.onchange = () => { abbrevDict.setAbbrev(it.key, input.value); renderAbbrevDialog(); };
+    tr.querySelector(".del").onclick = () => { abbrevDict.remove(it.key); renderAbbrevDialog(); };
+    body.appendChild(tr);
+  }
+}
+
 function addBlankRow() {
   snapshot();
   state.entries.push({
@@ -390,7 +445,10 @@ function setupTable() {
     snapshot();
     const before = columns().length;
     setCell(entry, col, el.value);
-    if (columns().length !== before) {
+    if (col.key === "short_journal" && learnAbbrev(entry)) {
+      markChanged(false);
+      setTimeout(renderKeepingFocus, 0);
+    } else if (columns().length !== before) {
       // 著者列が増えたときは、Tab で移った先の欄にフォーカスが移ってから作り直す
       markChanged(false);
       setTimeout(renderKeepingFocus, 0);
@@ -493,6 +551,16 @@ function init() {
   $("btn-save").onclick = saveAs;
   $("btn-load").onclick = loadMetadata;
   $("btn-blank").onclick = addBlankRow;
+  $("btn-abbrev").onclick = openAbbrevDialog;
+  $("abbrev-close").onclick = () => {
+    $("abbrev-dialog").close();
+    const diff = abbrevDict.mismatches(state.entries);
+    if (diff.length && confirm(`辞書と違う雑誌略称が ${diff.length} 件あります。辞書に合わせますか？`)) {
+      snapshot();
+      for (const e of diff) e.short_journal = abbrevDict.lookup(e.journal);
+      markChanged();
+    }
+  };
   $("doi-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.isComposing) loadMetadata(); });
   $("list-name").addEventListener("change", (ev) => {
     state.listName = ev.target.value.trim() || "Untitled_List";
@@ -520,7 +588,8 @@ function init() {
   try {
     const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
     if (draft) {
-      const { entries, config } = parseList(draft.data);
+      const { entries, config, abbreviations } = parseList(draft.data);
+      abbrevDict.mergeFrom(abbreviations);
       state.entries = entries;
       state.config = normalizeConfig(config);
       state.listName = draft.name || state.listName;

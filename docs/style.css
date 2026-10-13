@@ -163,3 +163,20 @@ tr.drop-after td { box-shadow: inset 0 -2px 0 var(--drop); }
   .input-row { flex-direction: column; }
 }
 h1 small { font-size: 12px; font-weight: 400; }
+
+dialog {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  width: min(760px, calc(100% - 32px));
+}
+dialog::backdrop { background: rgba(0, 0, 0, .35); }
+dialog h2 { font-size: 16px; margin: 0 0 4px; }
+dialog p { margin: 0 0 10px; }
+.abbrev-scroll { max-height: 60vh; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+.abbrev-scroll table { width: 100%; }
+.abbrev-scroll #abbrev-empty { padding: 12px; margin: 0; }
+td.abbrev-full { padding: 6px 8px; overflow-wrap: anywhere; }
+.dialog-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
